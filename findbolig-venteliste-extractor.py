@@ -1,14 +1,12 @@
 import argparse
 import logging
-import urllib
-import urllib2
-from cookielib import CookieJar
 import sys
 import re
 import time
 import json
 import csv
 import datetime
+import requests
 
 log = logging.getLogger(__name__)
 logging.getLogger('pyactiveresource').setLevel(logging.WARNING)
@@ -19,24 +17,21 @@ class FindBoligNuClient:
 	URL_login = URL_base+"logind.aspx"
 	URL_venteliste = URL_base+"Findbolig-nu/Min-side/ventelisteboliger/opskrivninger.aspx?"
 	URL_placement = URL_secure_base+"Services/WaitlistService.asmx/GetWaitlistRank"
-	opener = None
+	session = requests.Session()
 	def __init__(self):
 		log.info("Initializing the findbolig.nu client")
-		cj = CookieJar()
-		self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-		response = self.opener.open(FindBoligNuClient.URL_base)
-		if "Findbolig.nu" not in response.read():
+		response = self.session.get(self.URL_base)
+		if "Findbolig.nu" not in response.text:
 			log.error("It seems like the findbolig.nu website is down or has changed a lot.")
 			sys.exit(-1);
 
 	def login(self, username, password):
 		log.info("Logging into %s using username '%s'", FindBoligNuClient.URL_login, username)
 		# Fetch the regular login page.
-		request = urllib2.Request(self.URL_login)
-		response = self.opener.open(request)
+		response = self.session.get(self.URL_login)
 		# Extract input names and values
 		data = dict()
-		content = response.read()
+		content = response.text
 		input_fields = re.findall("<input(.*)>", content, flags=re.IGNORECASE)
 		for field in input_fields:
 			name = re.findall('.*name="([^"]*)".*', field)
@@ -51,14 +46,10 @@ class FindBoligNuClient:
 		data["__EVENTTARGET"] = "ctl00$placeholdercontent_1$but_Login"
 		data["__EVENTARGUMENT"] = ""
 
-		# Encode the data
-		data = urllib.urlencode(data)
-		request = urllib2.Request(self.URL_login, data)
-		response = self.opener.open(request)
-		content = response.read()
-		if "Log af" in content:
+		response = self.session.post(self.URL_login, data=data)
+		if "Log af" in response.text:
 			# Extract users full name.
-			name = re.search('<span id="fm1_lbl_userName">(.*)&nbsp;</span>', content)
+			name = re.search('<span id="fm1_lbl_userName">(.*)&nbsp;</span>', response.text)
 			log.info("Logged in as %s", name.group(1))
 			return True
 		else:
@@ -66,9 +57,8 @@ class FindBoligNuClient:
 
 	def extract_waitinglist_references(self):
 		result = []
-		response = self.opener.open(self.URL_venteliste)
-		content = response.read()
-		table_content = re.search('<table[^>]*id="GridView_Results"[^>]*>(.*?)</table>', content, flags=re.IGNORECASE|re.DOTALL)
+		response = self.session.get(self.URL_venteliste)
+		table_content = re.search('<table[^>]*id="GridView_Results"[^>]*>(.*?)</table>', response.text, flags=re.IGNORECASE|re.DOTALL)
 		if table_content:
 			table_content = table_content.group(1)
 			rows = re.findall('<tr class="rowstyle"[^>]*>(.*?)</tr>', table_content, flags=re.IGNORECASE|re.DOTALL)
@@ -84,12 +74,15 @@ class FindBoligNuClient:
 		result = {}
 		for bid in bids:
 			log.debug("Requesting placement on building #%u.", bid)
-			data = "{buildingId:%u}" % bid
-			request = urllib2.Request(self.URL_placement, data)
-			request.add_header('Content-Type', 'application/json; charset=UTF-8')
-			response = self.opener.open(request)
+			data = {
+				'buildingId': bid
+			}
+			headers = {
+				'Content-Type': 'application/json; charset=UTF-8'
+			}
+			response = self.session.post(self.URL_placement, data=json.dumps(data), headers=headers)
 			if response:
-				response = json.loads(response.read())
+				response = response.json()
 				if response["d"] and response["d"]["WaitPlacement"]:
 					result[str(bid)] = int(response["d"]["WaitPlacement"])
 					log.debug("It was %u.", result[str(bid)])
