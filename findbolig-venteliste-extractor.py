@@ -12,12 +12,12 @@ log = logging.getLogger(__name__)
 logging.getLogger('pyactiveresource').setLevel(logging.WARNING)
 
 class FindBoligNuClient:
-	URL_base = "http://www.findbolig.nu/"
-	URL_secure_base = "https://www.findbolig.nu/"
+	URL_base = "https://www.findbolig.nu/"
 	URL_login = URL_base+"logind.aspx"
 	URL_venteliste = URL_base+"Findbolig-nu/Min-side/ventelisteboliger/opskrivninger.aspx?"
-	URL_placement = URL_secure_base+"Services/WaitlistService.asmx/GetWaitlistRank"
+	URL_placement = URL_base+"Services/WaitlistService.asmx/GetWaitlistRank"
 	session = requests.Session()
+
 	def __init__(self):
 		log.info("Initializing the findbolig.nu client")
 		response = self.session.get(self.URL_base)
