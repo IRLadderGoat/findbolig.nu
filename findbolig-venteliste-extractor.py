@@ -36,11 +36,15 @@ class FindBoligNuClient:
 		for field in input_fields:
 			name = re.findall('.*name="([^"]*)".*', field)
 			value = re.findall('.*value="([^"]*)".*', field)
+			type = re.findall('.*type="([^"]*)".*', field)
+			if type[0] == "button":
+				continue # Skip buttons
 			if name:
 				if value:
 					data[name[0]] = value[0]
 				else:
 					data[name[0]] = ""
+
 		data["ctl00$placeholdercontent_1$txt_UserName"] = username
 		data["ctl00$placeholdercontent_1$txt_Password"] = password
 		data["__EVENTTARGET"] = "ctl00$placeholdercontent_1$but_Login"
