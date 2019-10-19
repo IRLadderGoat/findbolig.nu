@@ -44,7 +44,6 @@ class FindBoligNuClient:
 					data[name[0]] = value[0]
 				else:
 					data[name[0]] = ""
-
 		data["ctl00$placeholdercontent_1$txt_UserName"] = username
 		data["ctl00$placeholdercontent_1$txt_Password"] = password
 		data["__EVENTTARGET"] = "ctl00$placeholdercontent_1$but_Login"
@@ -62,16 +61,17 @@ class FindBoligNuClient:
 	def extract_waitinglist_references(self):
 		result = []
 		response = self.session.get(self.URL_venteliste)
-		table_content = re.search('<table[^>]*id="GridView_Results"[^>]*>(.*?)</table>', response.text, flags=re.IGNORECASE|re.DOTALL)
+		table_content = re.findall('<table[^>]*id="GridView_Results"[^>]*>(.*?)</table>', response.text, flags=re.IGNORECASE|re.DOTALL)
 		if table_content:
-			table_content = table_content.group(1)
-			rows = re.findall('<tr class="rowstyle"[^>]*>(.*?)</tr>', table_content, flags=re.IGNORECASE|re.DOTALL)
-			for row in rows:
-				#collumn = re.findall('<td[^>]*>(.*?)</td>', row, flags=re.IGNORECASE|re.DOTALL)
-				bid = re.search('href="\/Ejendomspraesentation.aspx\?bid=([^"]*)"', row, flags=re.IGNORECASE|re.DOTALL)
-				if bid:
-					bid = int(bid.group(1))
-					result.append(bid)
+			for tab in table_content:
+				#table_content = table_content.group(0)
+				rows = re.findall('<tr class="rowstyle"[^>]*>(.*?)</tr>', tab, flags=re.IGNORECASE|re.DOTALL)
+				for row in rows:
+					#collumn = re.findall('<td[^>]*>(.*?)</td>', row, flags=re.IGNORECASE|re.DOTALL)
+					bid = re.search('href="\/Ejendomspraesentation.aspx\?bid=([^"]*)"', row, flags=re.IGNORECASE|re.DOTALL)
+					if bid:
+						bid = int(bid.group(1))
+						result.append(bid)
 		return result
 
 	def extract_waitinglist_placements(self, bids, sleep=1):
